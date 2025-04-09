@@ -112,3 +112,24 @@ textarea {
   overflow: hidden !important;
 }
 
+/* 可以添加到你的全局 CSS 中 */
+.markdown-content {
+  word-break: break-word;
+}
+
+.markdown-content pre {
+  white-space: pre-wrap;
+}
+
+.markdown-content code {
+  font-family: monospace;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid #6366f1;
+  padding-left: 10px;
+  margin-left: 0;
+  margin-right: 0;
+  font-style: italic;
+  color: #94a3b8;
+}

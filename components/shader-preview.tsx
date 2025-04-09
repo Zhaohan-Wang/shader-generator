@@ -10,9 +10,10 @@ interface ShaderPreviewProps {
   vertexShader: string
   fragmentShader: string
   geometryType: "sphere" | "box" | "plane"
+  onError?: (errorMsg: string) => void
 }
 
-export default function ShaderPreview({ vertexShader, fragmentShader, geometryType }: ShaderPreviewProps) {
+export default function ShaderPreview({ vertexShader, fragmentShader, geometryType, onError }: ShaderPreviewProps) {
   return (
     <Canvas>
       <PerspectiveCamera makeDefault position={[0, 0, 2.5]} />
@@ -26,7 +27,7 @@ export default function ShaderPreview({ vertexShader, fragmentShader, geometryTy
       />
       <ambientLight intensity={0.5} />
       <pointLight position={[10, 10, 10]} intensity={1} />
-      <ShaderMesh vertexShader={vertexShader} fragmentShader={fragmentShader} geometryType={geometryType} />
+      <ShaderMesh vertexShader={vertexShader} fragmentShader={fragmentShader} geometryType={geometryType} onError={onError} />
       <Environment />
     </Canvas>
   )
@@ -36,10 +37,12 @@ function ShaderMesh({
   vertexShader,
   fragmentShader,
   geometryType,
+  onError,
 }: {
   vertexShader: string
   fragmentShader: string
   geometryType: "sphere" | "box" | "plane"
+  onError?: (errorMsg: string) => void
 }) {
   const meshRef = useRef<THREE.Mesh>(null)
   const materialRef = useRef<THREE.ShaderMaterial>(null)
@@ -67,18 +70,29 @@ function ShaderMesh({
     }
   })
 
-  // Compile shader with error handling
+  // Create a reusable shader material
   useEffect(() => {
+    if (!materialRef.current) return;
+    
     try {
-      if (materialRef.current) {
-        materialRef.current.vertexShader = vertexShader
-        materialRef.current.fragmentShader = fragmentShader
-        materialRef.current.needsUpdate = true
-      }
+      // Attempt to compile the shader
+      const tempMaterial = new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader,
+        uniforms: materialRef.current.uniforms
+      });
+      
+      // If we get here without error, update the actual material
+      materialRef.current.vertexShader = vertexShader;
+      materialRef.current.fragmentShader = fragmentShader;
+      materialRef.current.needsUpdate = true;
     } catch (error) {
-      console.error("Shader compilation error:", error)
+      console.error("Shader compilation error:", error);
+      if (onError) {
+        onError(error instanceof Error ? error.message : String(error));
+      }
     }
-  }, [vertexShader, fragmentShader])
+  }, [vertexShader, fragmentShader, onError]);
 
   // Render the appropriate geometry based on the selected type
   const renderGeometry = () => {
