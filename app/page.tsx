@@ -445,11 +445,7 @@ export default function ShaderGenerator() {
     maxResults: 3,
     apiKey: process.env.NEXT_PUBLIC_TAVILY_API_KEY // 添加API key配置
   })];
-  const agentModel = new ChatOpenAI({ 
-    temperature: 0,
-    openAIApiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-    modelName: "gpt-4o"
-  });
+  const [selectedModel, setSelectedModel] = useState<"gpt-4o" | "sonnet" | "deepseek">("gpt-4o")
   const [chatMessages, setChatMessages] = useState<
   { role: "user" | "assistant"; content: string }[]
 >([
@@ -461,7 +457,11 @@ export default function ShaderGenerator() {
   
 const agentCheckpointer = useRef(new SimpleMemorySaver());
 const agent = useRef(createReactAgent({
-  llm: agentModel,
+  llm: new ChatOpenAI({ 
+    temperature: 0,
+    openAIApiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+    modelName: "gpt-4o"
+  }),
   tools: agentTools,
 
 }));
@@ -560,16 +560,46 @@ const agent = useRef(createReactAgent({
       { role: "user" as const, content: inputMessage }
     ];
     setChatMessages(newMessages);
-    
-    // 显示加载指示器
     setChatMessages([...newMessages, { role: "assistant" as const, content: "..." }]);
     setIsLoading(true);
-    
     const userMessageCopy = inputMessage;
     setInputMessage("");
 
     try {
-      const response = await agent.current.invoke({
+      // 动态创建 agentModel 和 agent
+      let agentModelInstance: any = null;
+      if (selectedModel === "gpt-4o") {
+        agentModelInstance = new ChatOpenAI({ 
+          temperature: 0,
+          openAIApiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+          modelName: "gpt-4o"
+        });
+      } else if (selectedModel === "sonnet") {
+        agentModelInstance = new ChatOpenAI({ 
+          temperature: 0,
+          openAIApiKey: process.env.NEXT_PUBLIC_SONNET_API_KEY,
+          modelName: "sonnet"
+        });
+      } else if (selectedModel === "deepseek") {
+        agentModelInstance = new ChatOpenAI({ 
+          temperature: 0,
+          openAIApiKey: process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY,
+          modelName: "deepseek"
+        });
+      }
+      if (!agentModelInstance) {
+        setChatMessages(prev => {
+          return [...prev.slice(0, prev.length - 1), { role: "assistant", content: "模型选择无效，请重试。" }];
+        });
+        setIsLoading(false);
+        return;
+      }
+      const agentInstance = createReactAgent({
+        llm: agentModelInstance,
+        tools: agentTools,
+      });
+
+      const response = await agentInstance.invoke({
           messages: [
             {
               role: "system",
@@ -1016,6 +1046,18 @@ const agent = useRef(createReactAgent({
         >
           <div className="p-4 border-b border-slate-800">
             <h2 className="text-xl font-bold text-white">Dialog</h2>
+            <div className="flex items-center gap-2 mt-2 mb-2">
+              <span className="text-slate-400 text-sm">选择模型:</span>
+              <select
+                value={selectedModel}
+                onChange={e => setSelectedModel(e.target.value as any)}
+                className="bg-slate-800 text-white rounded px-2 py-1 text-sm border border-slate-700 focus:outline-none"
+              >
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="sonnet">Sonnet</option>
+                <option value="deepseek">DeepSeek</option>
+              </select>
+            </div>
           </div>
 
           <div
